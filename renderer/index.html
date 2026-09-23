@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>PRsona</title>
+  <link rel="stylesheet" href="fonts/fonts.css" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <nav class="tabs">
+      <div class="brand">PRsona</div>
+      <!-- Pull Requests is the working screen; Setup is the fallback, hence last. -->
+      <button class="tab-btn active" data-tab="prs">Pull Requests</button>
+      <button class="tab-btn" data-tab="review">Review</button>
+      <button class="tab-btn" data-tab="profile">Profile</button>
+      <button class="tab-btn" data-tab="setup">Setup</button>
+    </nav>
+
+    <main>
+      <!-- ================= Pull Requests (default screen) ================= -->
+      <section id="tab-prs" class="tab-panel active">
+        <div class="hero">
+          <h1>Pull Requests</h1>
+          <p class="tagline">Agent-drafted review comments, calibrated to how this
+            reviewer actually writes — nothing posts to GitHub until you approve it.</p>
+
+          <!-- Live counters; filled by loadStats() via stats:overview. -->
+          <div class="status-strip">
+            <div class="stat"><span class="k">Reviewer</span><span class="v" id="statReviewer">—</span></div>
+            <div class="stat"><span class="k">Corpus</span><span class="v" id="statCorpus">—</span></div>
+            <div class="stat"><span class="k">Sessions</span><span class="v" id="statSessions">—</span></div>
+            <div class="stat"><span class="k">Feedback</span><span class="v" id="statFeedback">—</span></div>
+            <div class="stat"><span class="k">Model</span><span class="v" id="statModel">—</span></div>
+          </div>
+        </div>
+
+        <div id="prsNotice" class="warning" style="display:none">
+          No reviewer configured yet — create one in Setup before reviewing.
+          <button id="btnGoSetup">Open Setup</button>
+        </div>
+
+        <label>Repo
+          <input id="prsRepo" placeholder="myorg/backend" />
+        </label>
+        <button id="btnLoadPRs" class="primary">Load open PRs</button>
+        <ul id="prList" class="pr-list"></ul>
+
+        <div id="prsEmpty" class="empty-state">
+          <strong>No pull requests loaded</strong>
+          <span class="empty-body">Enter a repository above to pull the open PRs and start a review.</span>
+        </div>
+      </section>
+
+      <!-- ================= Review ================= -->
+      <section id="tab-review" class="tab-panel">
+        <h1>Review</h1>
+
+        <div id="reviewWarning" class="warning" style="display:none"></div>
+
+        <fieldset>
+          <legend>Past reviews</legend>
+          <select id="sessionSelect"></select>
+          <button id="btnLoadSession">Load selected review</button>
+        </fieldset>
+
+        <div id="draftList" class="draft-list"></div>
+
+        <fieldset>
+          <legend>Add a comment the agent missed</legend>
+          <label>File path <span class="hint">(needed to post it inline)</span>
+            <input id="hcFile" placeholder="src/db/db.js" />
+          </label>
+          <label>Line
+            <input id="hcLine" type="number" placeholder="42" />
+          </label>
+          <label>Category <span class="hint">(optional — suggestions from the fixed vocabulary)</span>
+            <input id="hcCategory" list="hcCategoryOptions" placeholder="testing" />
+            <datalist id="hcCategoryOptions"></datalist>
+          </label>
+          <label>Comment
+            <textarea id="hcText" placeholder="What you would have flagged here..."></textarea>
+          </label>
+          <button id="btnAddHuman">Add comment</button>
+          <span id="hcStatus" class="status"></span>
+        </fieldset>
+
+        <button id="btnSubmitToGitHub" class="primary" style="display:none">Submit accepted comments to GitHub</button>
+      </section>
+
+      <!-- ================= Profile ================= -->
+      <section id="tab-profile" class="tab-panel">
+        <h1>Profile</h1>
+        <button id="btnLoadProfile">Reload profile</button>
+        <pre id="profileView" class="log"></pre>
+
+        <h2>Consolidation</h2>
+        <button id="btnPropose">Propose profile update from recent feedback</button>
+        <div id="consolidationDiff"></div>
+      </section>
+
+      <!-- ================= Setup (one continuous scroll) ================= -->
+      <section id="tab-setup" class="tab-panel">
+        <h1>Setup</h1>
+        <p class="setup-intro">One reviewer at a time — pick an existing one below, or create a new one.
+          Steps 1–4 save together; step 5 learns from history.</p>
+
+        <section class="setup-step">
+          <h2><span class="step-num">1</span> Reviewer</h2>
+          <label>Reviewer ID (slug, e.g. "alice")
+            <input id="reviewerId" placeholder="alice" />
+          </label>
+          <label>Display name
+            <input id="displayName" placeholder="Alice Chen" />
+          </label>
+          <button id="btnCreateReviewer">Save reviewer</button>
+          <span id="reviewerStatus" class="status"></span>
+          <label style="margin-top:12px">Existing reviewers <span class="hint">(pick to load)</span>
+            <select id="reviewerList">
+              <option value="">(none yet)</option>
+            </select>
+          </label>
+        </section>
+
+        <section class="setup-step">
+          <h2><span class="step-num">2</span> LLM provider <span class="hint">(review reasoning &amp; style)</span></h2>
+          <label>Provider
+            <select id="llmProvider">
+              <option value="anthropic">Anthropic (API key)</option>
+              <option value="openai">OpenAI (API key)</option>
+              <option value="ollama">Ollama (local)</option>
+              <option value="openai_compat">Custom OpenAI-compatible endpoint</option>
+            </select>
+          </label>
+          <label>Model
+            <input id="llmModel" placeholder="claude-sonnet-4-6" />
+          </label>
+          <label>API key <span class="hint">(not needed for local Ollama)</span>
+            <input id="llmApiKey" type="password" placeholder="sk-ant-..." />
+          </label>
+          <label>Base URL <span class="hint">(only for Ollama / custom endpoint)</span>
+            <input id="llmBaseUrl" placeholder="http://localhost:11434" />
+          </label>
+          <div class="step-actions">
+            <button id="btnTestLlm">Test LLM</button>
+            <span id="llmStatus" class="status"></span>
+          </div>
+        </section>
+
+        <section class="setup-step">
+          <h2><span class="step-num">3</span> Embeddings <span class="hint">(needed for backfill + style examples)</span></h2>
+          <label>Provider
+            <select id="embProvider">
+              <option value="">(same as LLM provider)</option>
+              <option value="anthropic">Anthropic — not supported, pick another</option>
+              <option value="openai">OpenAI</option>
+              <option value="ollama">Ollama (local)</option>
+              <option value="openai_compat">Custom OpenAI-compatible endpoint</option>
+            </select>
+          </label>
+          <label>Embedding model
+            <input id="embModel" placeholder="text-embedding-3-small / nomic-embed-text" />
+          </label>
+          <label>API key
+            <input id="embApiKey" type="password" />
+          </label>
+          <label>Base URL
+            <input id="embBaseUrl" placeholder="http://localhost:11434" />
+          </label>
+
+          <!-- Shown when the resolved embeddings provider can't embed, so the
+               mistake is caught here instead of at backfill. -->
+          <div id="embWarning" class="warning" style="display:none"></div>
+
+          <div class="step-actions">
+            <button id="btnTestEmb">Test embeddings</button>
+            <span id="embStatus" class="status"></span>
+          </div>
+        </section>
+
+        <section class="setup-step">
+          <h2><span class="step-num">4</span> GitHub</h2>
+          <label>Personal access token <span class="hint">(classic — repo + read:org scopes)</span>
+            <input id="githubToken" type="password" placeholder="ghp_..." />
+          </label>
+
+          <!-- Verifying also returns the login, which fills step 5 for you. -->
+          <div class="token-row">
+            <button id="btnTokenHelp">Get a token…</button>
+            <button id="btnTestGh">Test GitHub</button>
+          </div>
+          <span id="ghStatus" class="status"></span>
+
+          <label>Repos to watch <span class="hint">(comma-separated, owner/repo)</span>
+            <input id="repos" placeholder="myorg/backend, myorg/frontend" />
+          </label>
+
+            <!-- Applies to steps 2–4, so it sits directly after them and before
+               the backfill that depends on the saved settings. -->
+          <div class="step-actions">
+            <button id="btnSaveConfig" class="primary">Save settings</button>
+            <span id="configStatus" class="status"></span>
+          </div>
+        </section>
+
+        <section class="setup-step setup-step-last">
+          <h2><span class="step-num">5</span> Backfill history</h2>
+          <label>GitHub username to backfill from
+            <input id="backfillUsername" placeholder="alice-dev" />
+          </label>
+          <button id="btnBackfill">Run backfill</button>
+          <pre id="backfillLog" class="log"></pre>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

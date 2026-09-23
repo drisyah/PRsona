@@ -1,0 +1,692 @@
+/* ==========================================================================
+   PR Review Agent — "glass + aurora" theme
+   --------------------------------------------------------------------------
+   Direction: near-black canvas, a slow cyan/violet aurora behind everything,
+   translucent glass panels over it, hairline borders, mono for data.
+
+   Two rules this file must keep:
+     1. test/wiring.test.js greps for `warning`, `delta-label`, `delta-select`,
+        `token-row`, `step-num`, `setup-step` — rename those and CI breaks.
+     2. Body text stays >= 4.5:1 on --bg. Glow belongs on borders and shadows,
+        never used to carry meaning in text color alone.
+   ========================================================================== */
+
+:root {
+  color-scheme: dark;
+
+  --bg: #06070d;
+  --panel: rgba(19, 22, 33, 0.62);
+  --hairline: rgba(255, 255, 255, 0.08);
+  --hairline-strong: rgba(255, 255, 255, 0.16);
+
+  --text: #e8ecf5;      /* ~16:1 on --bg */
+  --muted: #97a0b5;     /* ~7.6:1 on --bg */
+  --accent: #22d3ee;    /* cyan  */
+  --accent-2: #8b5cf6;  /* violet */
+  --grad: linear-gradient(120deg, var(--accent), var(--accent-2));
+  --glow: 0 0 24px -8px rgba(34, 211, 238, 0.85);
+
+  --danger: #ff6b8a;
+  --ok: #4ade9e;
+  --warn: #ffc800;
+
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --radius: 12px;
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 14px;
+  overflow: hidden; /* the app shell owns the scroll, not the document */
+  -webkit-font-smoothing: antialiased;
+}
+
+/* --- aurora: one fixed, non-interactive wash behind the whole app --------- */
+body::before {
+  content: "";
+  position: fixed;
+  inset: -25%;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(38rem 38rem at 10% -8%, rgba(34, 211, 238, 0.17), transparent 60%),
+    radial-gradient(46rem 46rem at 92% 4%, rgba(139, 92, 246, 0.20), transparent 62%),
+    radial-gradient(52rem 52rem at 62% 112%, rgba(34, 211, 238, 0.10), transparent 60%);
+  filter: blur(12px);
+  animation: aurora 26s ease-in-out infinite alternate;
+}
+
+@keyframes aurora {
+  from { transform: translate3d(-2%, -1%, 0) scale(1); }
+  to   { transform: translate3d(2%, 2%, 0) scale(1.06); }
+}
+
+/* Faint engineering grid, faded out toward the edges. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 64px 64px;
+  -webkit-mask-image: radial-gradient(circle at 55% 25%, #000 0%, transparent 75%);
+  mask-image: radial-gradient(circle at 55% 25%, #000 0%, transparent 75%);
+}
+
+/* Everything real sits above the wash. */
+.app { position: relative; z-index: 1; }
+
+/* --- shell ---------------------------------------------------------------- */
+
+.app {
+  display: flex;
+  height: 100vh;
+}
+
+.tabs {
+  width: 232px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+  backdrop-filter: blur(22px) saturate(150%);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  border-right: 1px solid var(--hairline);
+}
+
+.brand {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 0 18px 18px;
+  border-bottom: 1px solid var(--hairline);
+  margin-bottom: 10px;
+}
+
+/* Block cursor — the one bit of terminal flavour in a glass UI. */
+.brand::before {
+  content: "▍";
+  color: var(--accent);
+  margin-right: 8px;
+  text-shadow: 0 0 12px rgba(34, 211, 238, 0.8);
+  animation: blink 1.4s steps(1) infinite;
+}
+
+@keyframes blink { 50% { opacity: 0.25; } }
+
+.tab-btn {
+  position: relative;
+  margin: 0;
+  background: none;
+  border: none;
+  color: var(--muted);
+  text-align: left;
+  padding: 12px 18px;
+  font: 500 14px/1.2 var(--font-display);
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: color 0.18s ease, background 0.18s ease;
+}
+
+/* Left rail that grows in on the active tab. */
+.tab-btn::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 3px;
+  height: 0;
+  border-radius: 0 3px 3px 0;
+  background: var(--grad);
+  box-shadow: var(--glow);
+  transform: translateY(-50%);
+  transition: height 0.24s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
+.tab-btn:hover { color: var(--text); background: rgba(255, 255, 255, 0.035); transform: none; }
+
+.tab-btn.active {
+  color: var(--text);
+  background: linear-gradient(90deg, rgba(34, 211, 238, 0.15), rgba(139, 92, 246, 0.06) 65%, transparent);
+}
+
+.tab-btn.active::before { height: 62%; }
+
+main {
+  flex: 1;
+  overflow-y: auto;
+  padding: 30px 40px 60px;
+}
+
+.tab-panel { display: none; }
+.tab-panel.active { display: block; max-width: 780px; }
+
+/* --- typography ----------------------------------------------------------- */
+
+h1 {
+  font-size: 25px;
+  font-weight: 500;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  margin: 0 0 8px;
+}
+
+/* The hero's h1 lives inside .hero (tagline takes this space there); the
+   bare-h1 tabs need the breathing room back. */
+.tab-panel > h1 { margin-bottom: 18px; }
+
+.tab-panel > h1::before,
+.hero h1::before {
+  content: "// ";
+  color: var(--accent);
+  opacity: 0.85;
+}
+
+h2 {
+  font-size: 15px;
+  color: var(--muted);
+  margin-top: 28px;
+  letter-spacing: 0.04em;
+}
+
+.hero .tagline {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+  max-width: 62ch;
+  margin: 0 0 20px;
+}
+
+.hint { color: var(--muted); font-weight: 400; }
+
+/* Mono micro-caps — used for section labels and data keys. */
+.label-cap {
+  font: 500 11px/1 var(--font-mono);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* --- controls ------------------------------------------------------------- */
+
+fieldset {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  padding: 18px;
+  margin-bottom: 18px;
+  background: var(--panel);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 18px 40px -34px rgba(0, 0, 0, 0.9);
+}
+
+legend {
+  padding: 0 8px;
+  color: var(--muted);
+  font: 500 11px/1 var(--font-mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+label {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+input, select {
+  display: block;
+  width: 100%;
+  margin-top: 5px;
+  padding: 9px 11px;
+  background: rgba(6, 7, 13, 0.55);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  color: var(--text);
+  font: 400 13px/1.3 var(--font-display);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+input::placeholder, textarea::placeholder { color: rgba(151, 160, 181, 0.6); }
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  background: rgba(6, 7, 13, 0.78);
+  border-color: rgba(34, 211, 238, 0.55);
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.15), 0 0 18px -6px rgba(34, 211, 238, 0.6);
+}
+
+select { cursor: pointer; }
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+button {
+  font: 500 13px/1 var(--font-display);
+  letter-spacing: 0.02em;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  padding: 10px 16px;
+  margin-right: 8px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+button:hover {
+  border-color: rgba(34, 211, 238, 0.45);
+  background: rgba(34, 211, 238, 0.10);
+  transform: translateY(-1px);
+}
+
+button:active { transform: translateY(0); }
+
+button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+button.primary {
+  background: var(--grad);
+  color: #06070d;
+  border-color: transparent;
+  font-weight: 600;
+  box-shadow: 0 8px 24px -12px rgba(34, 211, 238, 0.95);
+}
+
+button.primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 30px -12px rgba(139, 92, 246, 0.95);
+}
+
+/* --- status LEDs ---------------------------------------------------------- */
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 10px;
+  font-size: 13px;
+  color: var(--ok);
+}
+
+.status:empty { display: none; } /* no message, no dot */
+
+/* The setup layout rule below sets display:flex with equal specificity and
+   comes later in this file — without this, empty status spans in setup steps
+   render a lone dot. Element selector tips the specificity over (0,2,0). */
+span.status:empty { display: none; }
+
+.status::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 10px currentColor;
+  animation: pulse 2.2s ease-in-out infinite;
+}
+
+.status.error { color: var(--danger); }
+
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+/* --- logs / code ---------------------------------------------------------- */
+
+.log {
+  background: rgba(6, 7, 13, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  padding: 14px;
+  font: 400 12px/1.6 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  max-height: 340px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  color: #c6cede;
+}
+
+pre, code { font-family: var(--font-mono); }
+
+/* --- PR list + draft cards ------------------------------------------------ */
+
+.pr-list, .draft-list { list-style: none; padding: 0; margin-top: 16px; }
+
+/* Items rise in with a stagger; --i is set by renderer.js as rows arrive. */
+.pr-list > * {
+  animation: rise 0.45s cubic-bezier(0.2, 0.9, 0.3, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+}
+
+.pr-item, .draft-card {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  padding: 13px 15px;
+  margin-bottom: 10px;
+  background: var(--panel);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 18px 40px -34px rgba(0, 0, 0, 0.9);
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.pr-item:hover {
+  transform: translateY(-2px);
+  border-color: rgba(34, 211, 238, 0.35);
+  box-shadow: 0 20px 44px -30px rgba(34, 211, 238, 0.9);
+}
+
+.pr-item { display: flex; justify-content: space-between; align-items: center; }
+
+.draft-card .meta {
+  font: 500 11px/1.5 var(--font-mono);
+  color: var(--muted);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.draft-card textarea, #hcText {
+  width: 100%;
+  min-height: 70px;
+  background: rgba(6, 7, 13, 0.6);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  color: var(--text);
+  padding: 9px 10px;
+  font: 400 13px/1.5 var(--font-display);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.draft-card .actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.draft-card .actions button { margin-right: 0; }
+
+.draft-card textarea[readonly] { opacity: 0.8; }
+
+.badge {
+  display: inline-block;
+  font: 500 10px/1.5 var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 5px;
+  border: 1px solid transparent;
+  margin-right: 7px;
+}
+
+.badge.blocking {
+  background: rgba(255, 107, 138, 0.14);
+  color: #ff9db1;
+  border-color: rgba(255, 107, 138, 0.38);
+  box-shadow: 0 0 16px -8px rgba(255, 107, 138, 1);
+}
+
+.badge.nit {
+  background: rgba(151, 160, 181, 0.16);
+  color: var(--muted);
+  border-color: var(--hairline);
+}
+
+.badge.question {
+  background: rgba(34, 211, 238, 0.13);
+  color: #7ce7f7;
+  border-color: rgba(34, 211, 238, 0.38);
+  box-shadow: 0 0 16px -8px rgba(34, 211, 238, 1);
+}
+
+.delta-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 auto 0 0;
+  font: 500 11px/1 var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.delta-select {
+  display: block;
+  width: auto;
+  margin-top: 0;
+  padding: 7px 9px;
+  font-size: 12px;
+  border-radius: 8px;
+}
+
+#sessionSelect { margin-bottom: 10px; }
+
+/* --- empty / loading states ------------------------------------------------ */
+
+.empty-state {
+  border: 1px dashed var(--hairline-strong);
+  border-radius: var(--radius);
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.02);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.empty-state strong {
+  display: block;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  margin-bottom: 7px;
+}
+
+.skeleton {
+  min-height: 48px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.035) 0%,
+    rgba(255, 255, 255, 0.10) 50%,
+    rgba(255, 255, 255, 0.035) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+@keyframes shimmer { to { background-position: -200% 0; } }
+
+/* --- hero + system status strip ------------------------------------------- */
+
+.hero { margin-bottom: 24px; }
+
+.status-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.stat {
+  flex: 1 1 132px;
+  padding: 13px 15px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.015));
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.stat .k {
+  display: block;
+  font: 500 10px/1 var(--font-mono);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.stat .v {
+  display: block;
+  margin-top: 9px;
+  font: 500 17px/1.3 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  /* Wrap rather than ellipsize: long values (model names, slugs) break at
+     hyphens, short numbers stay on one line. */
+  overflow-wrap: anywhere;
+}
+
+.stat .v.accent {
+  color: var(--accent);
+  text-shadow: 0 0 20px rgba(34, 211, 238, 0.55);
+}
+
+/* --- alerts / consolidation ------------------------------------------------ */
+
+/* Non-fatal pipeline problem (e.g. no embeddings provider configured). */
+.warning {
+  background: rgba(255, 200, 0, 0.08);
+  border: 1px solid rgba(255, 200, 0, 0.35);
+  color: var(--warn);
+  border-radius: var(--radius);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+
+#prsNotice button { margin-left: 8px; }
+
+.diff-change {
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 8px;
+  font: 400 12px/1.6 var(--font-mono);
+  background: rgba(6, 7, 13, 0.55);
+}
+
+/* --- setup: one continuous scroll ----------------------------------------- */
+
+.setup-intro {
+  color: var(--muted);
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.setup-step {
+  padding: 22px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.setup-step-last { border-bottom: none; }
+
+.setup-step h2 {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-top: 0;
+  margin-bottom: 16px;
+  color: var(--text);
+  font-size: 15px;
+  letter-spacing: 0.03em;
+}
+
+.setup-step h2 .hint { font-weight: 400; }
+
+.step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid rgba(34, 211, 238, 0.45);
+  border-radius: 50%;
+  background: rgba(34, 211, 238, 0.10);
+  box-shadow: 0 0 18px -6px rgba(34, 211, 238, 0.95);
+  font: 500 12px/1 var(--font-mono);
+  color: var(--accent);
+  flex: none;
+}
+
+.step-actions { margin-top: 16px; }
+
+/* Status lines sit on their own line — setup errors are full sentences
+   (an embeddings diagnosis can be two lines long), not emoji-length. */
+.setup-step .status {
+  display: flex;
+  margin-left: 0;
+  margin-top: 10px;
+}
+
+.token-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.token-row button { margin-right: 0; }
+
+/* --- scrollbars ------------------------------------------------------------ */
+
+main::-webkit-scrollbar,
+.log::-webkit-scrollbar { width: 11px; height: 11px; }
+
+main::-webkit-scrollbar-track,
+.log::-webkit-scrollbar-track { background: transparent; }
+
+main::-webkit-scrollbar-thumb,
+.log::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.13);
+  background-clip: padding-box;
+  border: 3px solid transparent;
+  border-radius: 99px;
+}
+
+main::-webkit-scrollbar-thumb:hover,
+.log::-webkit-scrollbar-thumb:hover { background-color: rgba(34, 211, 238, 0.45); }
+
+/* --- accessibility ---------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

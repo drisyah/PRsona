@@ -1,0 +1,53 @@
+{
+  "name": "pr-review-agent",
+  "version": "0.1.0",
+  "description": "A local, provider-agnostic AI agent that learns a specific reviewer's code-review style and drafts PR reviews in that style.",
+  "main": "electron/main.js",
+  "author": "saril",
+  "license": "MIT",
+  "private": true,
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "dist": "electron-builder",
+    "test": "node test/pipeline.test.js && node test/wiring.test.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^13.0.3",
+    "electron-store": "^8.2.0"
+  },
+  "devDependencies": {
+    "electron": "^44.4.3",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.local.pr-review-agent",
+    "productName": "PRsona",
+    "npmRebuild": false,
+    "files": [
+      "electron/**/*",
+      "src/**/*",
+      "renderer/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "build"
+    },
+    "mac": {
+      "category": "public.app-category.developer-tools"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  },
+  "allowScripts": {
+    "electron": true,
+    "better-sqlite3": false
+  }
+}
