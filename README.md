@@ -10,6 +10,7 @@ with your own API keys, posting nothing you haven't approved.
 
 [Features](#features) · [How it works](#how-it-works) · [Quick start](#quick-start) · [Contributing](CONTRIBUTING.md)
 
+[![CI](https://github.com/drisyah/PRsona/actions/workflows/ci.yml/badge.svg)](https://github.com/drisyah/PRsona/actions/workflows/ci.yml)
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Electron 44](https://img.shields.io/badge/Electron-44-47848f.svg)
 ![Node >= 22](https://img.shields.io/badge/Node-%3E%3D22-339933.svg)
