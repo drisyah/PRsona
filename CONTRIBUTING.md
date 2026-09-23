@@ -23,7 +23,7 @@ Prerequisites: **Node ≥ 22** and `npm`.
 ```bash
 git clone https://github.com/<you>/PRsona.git
 cd PRsona
-npm install     # installs Electron and builds the better-sqlite3 native module
+npm install     # no compiler needed — better-sqlite3 ships prebuilds (see docs/TROUBLESHOOTING.md)
 npm test        # run this before every PR — must be 100% green
 npm start       # launch the app with the setup wizard
 ```

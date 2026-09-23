@@ -55,13 +55,15 @@ flowchart LR
 1. **Backfill** — pulls the reviewer's past PR comments from GitHub into a
    local SQLite database, categorizes them from a fixed vocabulary, and
    embeds them for retrieval.
-2. **Review pipeline** (per PR), two separate LLM calls on purpose:
+2. **Review pipeline** (per PR) — two separate LLM calls on purpose, with
+   plain-code calibration between them:
    - **Analysis pass** — style-agnostic: finds candidate issues in the
      diff, scored against the reviewer's learned rubric.
    - **Calibration** — plain code, not an LLM call: filters issues down to
      roughly match how often this reviewer actually comments on each
-     category historically. Findings rare *for you* get elevated; things
-     you never comment on get dropped instead of nagging you.
+     category historically. Findings in categories you rarely comment on
+     get dropped instead of nagging you; blocking issues and categories
+     your history doesn't cover yet always survive.
    - **Style pass** — rephrases the surviving issues in the reviewer's real
      voice, grounded in retrieved examples of their actual past comments
      (few-shot), not just an abstract description.
@@ -90,7 +92,7 @@ calls it.
   and posted as a *pending* GitHub review; nothing notifies anyone until
   you submit from the GitHub UI.
 - **Per-step self-tests** — Setup validates the LLM, embeddings, and
-  GitHub token *at the field*, and verifying the token auto-fills your
+  GitHub token *at the field*. Verifying the token also auto-fills your
   backfill username.
 - **Live dashboard** — the default screen shows reviewer, corpus size,
   sessions, pending feedback, and model at a glance.
@@ -115,9 +117,10 @@ calls it.
 - An LLM you can reach: an Anthropic/OpenAI API key, **or** a local runtime
   like [Ollama](https://ollama.com) with a model pulled
   (`ollama pull qwen2.5-coder:32b`, or similar).
-- A GitHub personal access token with `repo` scope (for private repos) or
-  no scope needed for public-repo read access, plus `pull_request` write
-  if you want it to post pending reviews.
+- A GitHub personal access token — classic: `repo` scope (public-repo
+  reads need no scope at all), or fine-grained: **Contents** +
+  **Pull requests**, read and write. The write permission is only needed
+  to post *pending* reviews.
 
 ## Quick start
 
@@ -221,10 +224,11 @@ docs/                screenshots + troubleshooting guide
   the fixed vocabulary in `src/pipeline/categories.js`. The analysis pass
   uses the same vocabulary, so calibration can join the two sides on
   category name. It only ever selects rows where `category IS NULL`, so
-  re-running backfill never re-bills already-labeled comments, and a batch
-  the model answers unparseably is left NULL for the next run instead of
-  being stamped `uncategorized`. You can also hand-edit a reviewer's profile
-  JSON directly (`<userData>/profiles/<reviewer>.json`) to seed it faster.
+  re-running backfill never re-processes already-labeled comments, and a
+  batch the model answers with unparseable JSON is left NULL for the next
+  run instead of being stamped `uncategorized`. You can also hand-edit a
+  reviewer's profile JSON directly (`<userData>/profiles/<reviewer>.json`)
+  to seed it faster.
 - **PR diffs aren't chunked** — very large PRs may exceed context limits,
   especially on local models with smaller windows. A straightforward
   follow-up is to split by file and run the analysis pass per file.
