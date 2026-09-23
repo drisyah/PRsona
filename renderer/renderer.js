@@ -673,8 +673,14 @@ document.getElementById('btnSubmitToGitHub').addEventListener('click', async () 
   }
 
   try {
-    await window.api.review.submitToGitHub(currentRepo, currentPrNumber, submittable, currentSessionId);
-    alert('Posted as a pending review on GitHub — open the PR to submit it.');
+    const res = await window.api.review.submitToGitHub(currentRepo, currentPrNumber, submittable, currentSessionId);
+    if (res && res.deferred > 0) {
+      alert(`Posted as a pending review — ${res.anchored} comment(s) inline, `
+        + `${res.deferred} added to the review body (their lines aren't in the diff). `
+        + 'Open the PR to submit it.');
+    } else {
+      alert('Posted as a pending review on GitHub — open the PR to submit it.');
+    }
     await refreshSessions();
   } catch (e) {
     alert(`Failed to submit: ${e.message}`);

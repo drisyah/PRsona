@@ -316,6 +316,122 @@ const section = (t) => console.log('\n== ' + t + ' ==');
   check('non-Gemini endpoints never receive the parameter',
     sentBodies[2] && !('reasoning_effort' in sentBodies[2]), JSON.stringify(sentBodies[2]));
 
+  // 10. GitHub 422s the ENTIRE review if any comment's line isn't in the
+  // diff ("Line could not be resolved") — and the analysis pass is an LLM,
+  // so out-of-diff line guesses are routine. Every anchor must be validated
+  // against the real diff before submit; unplaceable ones move to the body.
+  section('10. comment anchors validated against the real diff (422 guard)');
+  const { commentableLines, resolveAnchors, deferredToBody } = require(R('src/github/anchors'));
+
+  const DIFF = [
+    'diff --git a/src/export.js b/src/export.js',
+    'new file mode 100644',
+    'index 0000000..aaaa1111',
+    '--- /dev/null',
+    '+++ b/src/export.js',
+    '@@ -0,0 +1,6 @@',
+    '+const fs = require("fs");',
+    '+',
+    '+function exportCsv(rows) {',
+    '+  return rows.join(",");',
+    '+}',
+    '+module.exports = { exportCsv };',
+    'diff --git a/src/server.js b/src/server.js',
+    'index bbbb2222..cccc3333 100644',
+    '--- a/src/server.js',
+    '+++ b/src/server.js',
+    '@@ -20,5 +20,7 @@ function handler(req, res) {',
+    '   const t = Date.now();',
+    '-  console.log("hit");',
+    '   return res.end("");',
+    '+  if (req.url === "/export") {',
+    '+    res.end(exportCsv(rows));',
+    '+  }',
+    '   const entry = recordVisit(req.url);',
+    ' }',
+    '',
+  ].join('\n');
+  const DEL_DIFF = [
+    'diff --git a/src/legacy.js b/src/legacy.js',
+    'index dddd4444..eeee5555 100644',
+    '--- a/src/legacy.js',
+    '+++ b/src/legacy.js',
+    '@@ -10,3 +10,1 @@',
+    '-const gone = 1;',
+    '-const alsoGone = 2;',
+    ' const kept = 3;',
+    '',
+  ].join('\n');
+
+  const parsed = commentableLines(DIFF);
+  const exp = parsed.get('src/export.js');
+  const srv = parsed.get('src/server.js');
+  check('new file: every line RIGHT-commentable, none LEFT',
+    exp && exp.right.size === 6 && exp.right.has(1) && exp.right.has(6) && exp.left.size === 0,
+    exp && JSON.stringify({ right: [...exp.right], left: [...exp.left] }));
+  check('insertion hunk: added lines RIGHT, context lines both sides',
+    srv && srv.right.has(22) && srv.right.has(24) && srv.left.has(20) && srv.right.has(26),
+    srv && JSON.stringify({ right: [...srv.right], left: [...srv.left] }));
+  check('lines outside the hunks are NOT commentable (the classic 422)',
+    srv && !srv.right.has(5) && !srv.left.has(5) && !srv.right.has(19),
+    srv && JSON.stringify({ right: [...srv.right], left: [...srv.left] }));
+
+  const IN_DIFF = [
+    { file_path: 'src/export.js', line: 3, text: 'needs quotes' },
+    { file_path: 'src/server.js', line: 23, text: 'check the url' },
+  ];
+  const OUTSIDE = { file_path: 'src/server.js', line: 5, text: 'hallucinated line' };
+  const GHOST_FILE = { file_path: 'src/not-in-diff.js', line: 5, text: 'ghost file' };
+  const NO_LINE = { file_path: 'src/export.js', line: null, text: 'no location' };
+  const { resolved, deferred } = resolveAnchors(
+    [...IN_DIFF, OUTSIDE, GHOST_FILE, NO_LINE], DIFF,
+  );
+  check('in-diff comments resolve with explicit side + preserved text',
+    resolved.length === 2
+    && resolved[0].path === 'src/export.js' && resolved[0].line === 3
+    && resolved[0].side === 'RIGHT' && resolved[0].body === 'needs quotes'
+    && resolved[1].side === 'RIGHT',
+    JSON.stringify({ resolved, deferred }));
+  check('out-of-diff line defers instead of failing the whole submission',
+    deferred.length === 3
+    && deferred.some((c) => c === OUTSIDE)
+    && deferred.some((c) => c === GHOST_FILE)
+    && deferred.some((c) => c === NO_LINE),
+    JSON.stringify(deferred));
+
+  const { resolved: delResolved } = resolveAnchors(
+    [{ file_path: 'src/legacy.js', line: 11, text: 'deleted line' }], DEL_DIFF,
+  );
+  check('deleted-line anchors resolve to side LEFT',
+    delResolved.length === 1 && delResolved[0].side === 'LEFT',
+    JSON.stringify(delResolved));
+
+  check('deferredToBody(empty) is empty (body key omitted)',
+    deferredToBody([]) === '' && deferredToBody(undefined) === '',
+    JSON.stringify(deferredToBody([])));
+  const dBody = deferredToBody([OUTSIDE, GHOST_FILE]);
+  check('deferred notes land in the review body with file:line context',
+    dBody.includes('src/server.js:5') && dBody.includes('hallucinated line')
+    && dBody.includes('src/not-in-diff.js') && dBody.includes('anchored'),
+    dBody);
+
+  let anchorCapture = null;
+  global.fetch = async (url, opts) => {
+    anchorCapture = { url, body: JSON.parse(opts.body) };
+    return { ok: true, status: 200, json: async () => ({ id: 43 }) };
+  };
+  try {
+    await new GitHubClient('tok').createPendingReview('o/r', 7, resolved, dBody);
+  } finally {
+    global.fetch = realFetch;
+  }
+  check('submit carries side + deferred body, still no event field',
+    anchorCapture
+    && anchorCapture.body.comments[0].side === 'RIGHT'
+    && anchorCapture.body.body === dBody
+    && !('event' in anchorCapture.body),
+    anchorCapture && JSON.stringify(anchorCapture.body));
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 })().catch((e) => {

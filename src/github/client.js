@@ -79,16 +79,23 @@ class GitHubClient {
    *  set the review action state to PENDING"), and COMMENT additionally
    *  requires a top-level `body`. Omitting it avoids both: the review sits
    *  in PENDING, no `body` is needed, and nothing is submitted or notified
-   *  until a human does it. */
-  async createPendingReview(repo, prNumber, comments) {
+   *  until a human does it.
+   *
+   *  Each comment carries `side` (RIGHT/LEFT) resolved by src/github/anchors
+   *  against the real diff — GitHub 422s the whole request otherwise. An
+   *  optional top-level `body` carries notes for comments that could not be
+   *  anchored to a diff line (also anchors.js). */
+  async createPendingReview(repo, prNumber, comments, body) {
     return this.request(`/repos/${repo}/pulls/${prNumber}/reviews`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        comments: comments.map((c) => ({
-          path: c.file_path,
+        ...(body ? { body } : {}),
+        comments: (comments || []).map((c) => ({
+          path: c.path !== undefined ? c.path : c.file_path,
           line: c.line,
-          body: c.text,
+          ...(c.side ? { side: c.side } : {}),
+          body: c.body !== undefined ? c.body : c.text,
         })),
       }),
     });

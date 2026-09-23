@@ -5,6 +5,7 @@ const db = require('../src/db/db');
 const { initConfig, getConfig } = require('../src/config/config');
 const { buildProviders } = require('../src/llm');
 const { GitHubClient } = require('../src/github/client');
+const { resolveAnchors, deferredToBody } = require('../src/github/anchors');
 const { backfillReviewer } = require('../src/pipeline/backfill');
 const { categorizeComments } = require('../src/pipeline/categorize');
 const { runReview } = require('../src/pipeline/review');
@@ -319,11 +320,21 @@ ipcMain.handle('review:addHumanComment', (event, { sessionId, reviewerId, filePa
 
 ipcMain.handle('review:submitToGitHub', async (event, { repo, prNumber, comments, sessionId }) => {
   const github = getGitHub();
-  const result = await github.createPendingReview(repo, prNumber, comments);
-  // Only mark the session once GitHub actually accepted the review — a 422
-  // (bad line, etc.) leaves it 'draft' so it can be corrected and retried.
+  // The analysis pass is an LLM, so its line/file guesses can fall outside
+  // the diff — and GitHub 422s the ENTIRE review for one unresolvable
+  // anchor. Validate every comment against the real diff first: provably
+  // placeable ones go inline with an explicit side, the rest ride along in
+  // the review body instead of failing the submission (src/github/anchors).
+  const diffText = await github.getPRDiff(repo, prNumber);
+  const { resolved, deferred } = resolveAnchors(comments, diffText);
+  const result = await github.createPendingReview(
+    repo, prNumber, resolved, deferredToBody(deferred),
+  );
+  // Only mark the session once GitHub actually accepted the review — a
+  // residual 422 (bad path, stale token) leaves it 'draft' so it can be
+  // corrected and retried.
   if (sessionId) db.markSessionSubmitted(sessionId);
-  return result;
+  return { ...result, anchored: resolved.length, deferred: deferred.length };
 });
 
 // ---------------------------------------------------------------------

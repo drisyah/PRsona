@@ -97,7 +97,7 @@ calls it.
   backfill username.
 - **Live dashboard** — the default screen shows reviewer, corpus size,
   sessions, pending feedback, and model at a glance.
-- **Offline test suite** — 113 assertions across the pipeline and static
+- **Offline test suite** — 122 assertions across the pipeline and static
   wiring audit; no network, no API keys needed to test.
 - **Honest about limits** — see [Design notes](#design-notes--known-simplifications).
 
