@@ -94,9 +94,11 @@ const section = (t) => console.log('\n== ' + t + ' ==');
   const profile = ps.loadProfile(profilesDir, 'alice');
 
   let analysisPromptText = '';
+  const seenBudgets = [];
   const makeProviders = () => ({
     completion: {
-      complete: async (system, messages) => {
+      complete: async (system, messages, opts) => {
+        seenBudgets.push({ analysis: system.startsWith('You are the analysis stage'), maxTokens: opts && opts.maxTokens });
         if (system.startsWith('You are the analysis stage')) {
           analysisPromptText = system;
           return JSON.stringify([
@@ -133,6 +135,10 @@ const section = (t) => console.log('\n== ' + t + ' ==');
   check('off-vocabulary "styel" normalized to uncategorized', cats.includes('uncategorized'), cats.join(','));
   check('low-share style nit filtered out', !cats.includes('style'), cats.join(','));
   check('blocking security issue kept', cats.includes('security'), cats.join(','));
+  check('analysis call declares an explicit token budget (Gemini truncation fix)',
+    seenBudgets.some((b) => b.analysis && b.maxTokens >= 6000), JSON.stringify(seenBudgets));
+  check('style call declares an explicit token budget',
+    seenBudgets.some((b) => !b.analysis && b.maxTokens >= 4000), JSON.stringify(seenBudgets));
 
   // degrade path: no usable embeddings provider
   const noEmb = makeProviders();
@@ -282,6 +288,33 @@ const section = (t) => console.log('\n== ' + t + ' ==');
   check('whoami hits GET /user with the token attached',
     whoami && whoami.url === 'https://api.github.com/user' && whoami.auth === 'Bearer tok-abc',
     whoami && `${whoami.url} ${whoami.auth}`);
+
+  // 9. Gemini thinking counts against max_tokens; a dynamically-thinking
+  // model truncated review JSON in production. Pin the effort per model family.
+  section('9. Gemini thinking effort pinned (truncated-JSON guard)');
+  const { OpenAICompatProvider } = require(R('src/llm/openaiCompatProvider'));
+  const sentBodies = [];
+  global.fetch = async (url, opts) => {
+    sentBodies.push(JSON.parse(opts.body));
+    return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: '[]' } }] }) };
+  };
+  try {
+    await new OpenAICompatProvider({ baseUrl: 'https://x/v1', apiKey: 'k', model: 'gemini-3.6-flash' })
+      .complete('s', [{ role: 'user', content: 'hi' }], { maxTokens: 6000 });
+    await new OpenAICompatProvider({ baseUrl: 'https://x/v1', apiKey: 'k', model: 'gemini-2.5-flash' })
+      .complete('s', [{ role: 'user', content: 'hi' }]);
+    await new OpenAICompatProvider({ baseUrl: 'https://x/v1', apiKey: 'k', model: 'gpt-4o' })
+      .complete('s', [{ role: 'user', content: 'hi' }]);
+  } finally {
+    global.fetch = realFetch;
+  }
+  check('gemini-3.x: effort pinned low and caller budget respected',
+    sentBodies[0] && sentBodies[0].reasoning_effort === 'low' && sentBodies[0].max_tokens === 6000,
+    JSON.stringify(sentBodies[0]));
+  check('gemini-2.5: thinking fully disabled',
+    sentBodies[1] && sentBodies[1].reasoning_effort === 'none', JSON.stringify(sentBodies[1]));
+  check('non-Gemini endpoints never receive the parameter',
+    sentBodies[2] && !('reasoning_effort' in sentBodies[2]), JSON.stringify(sentBodies[2]));
 
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);

@@ -22,6 +22,15 @@ class OpenAICompatProvider extends LLMProvider {
   }
 
   async complete(system, messages, opts = {}) {
+    // Gemini's thinking tokens count against max_tokens, so dynamic thinking
+    // can guillotine a long reply (we hit exactly that: a findings array cut
+    // mid-object → "Could not find closing bracket"). Pin the effort where we
+    // know the parameter: off on 2.5 (Google allows disabling), lowest on 3.x
+    // (thinking cannot be disabled there). Other endpoints never see it.
+    let reasoningEffort;
+    if (/^gemini-2\.5/.test(this.model)) reasoningEffort = 'none';
+    else if (/^gemini-3/.test(this.model)) reasoningEffort = 'low';
+
     const res = await fetch(`${this.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
@@ -33,6 +42,7 @@ class OpenAICompatProvider extends LLMProvider {
         messages: [{ role: 'system', content: system }, ...messages],
         max_tokens: opts.maxTokens ?? 1500,
         temperature: opts.temperature ?? 0.4,
+        ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
       }),
     });
 

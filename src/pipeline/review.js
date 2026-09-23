@@ -22,7 +22,10 @@ async function runReview({ providers, profile, reviewerId, repo, prNumber, diffT
   // fixed category vocabulary the backfill pass uses.
   const analysisRes = await providers.completion.complete(
     analysisPrompt(profile.substance_rubric, strictness, CATEGORIES),
-    [{ role: 'user', content: diffText }]
+    [{ role: 'user', content: diffText }],
+    // Explicit budget: real findings arrays outgrew the 1500 default, and
+    // Gemini counts thinking against this cap — both truncated the JSON.
+    { maxTokens: 6000 }
   );
   // A model that answers with a single object (or an empty/garbage value)
   // would otherwise reach `.filter`/`.length` and crash the whole review.
@@ -73,7 +76,8 @@ async function runReview({ providers, profile, reviewerId, repo, prNumber, diffT
 async function styleAndPersist({ providers, profile, sessionId, calibrated, similar = [] }) {
   const styleRes = await providers.completion.complete(
     stylePrompt(profile.style_profile, similar),
-    [{ role: 'user', content: JSON.stringify(calibrated) }]
+    [{ role: 'user', content: JSON.stringify(calibrated) }],
+    { maxTokens: 4000 }
   );
   const parsed = parseJsonResponse(styleRes);
   const styledComments = (Array.isArray(parsed) ? parsed : [parsed]).filter(

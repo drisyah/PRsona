@@ -19,7 +19,7 @@ function parseJsonResponse(text) {
 
     const isArray = cleaned[start] === '[';
     const end = isArray ? cleaned.lastIndexOf(']') : cleaned.lastIndexOf('}');
-    if (end === -1) throw new Error(`Could not find closing bracket in model response: ${text}`);
+    if (end === -1) throw new Error(`Could not find closing bracket in model response (looks truncated — the model likely hit its max_tokens cap): ${text}`);
 
     return JSON.parse(cleaned.slice(start, end + 1));
   }
