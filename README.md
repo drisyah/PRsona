@@ -63,7 +63,8 @@ flowchart LR
      roughly match how often this reviewer actually comments on each
      category historically. Findings in categories you rarely comment on
      get dropped instead of nagging you; blocking issues and categories
-     your history doesn't cover yet always survive.
+     your history doesn't cover yet always survive. Full write-up:
+     [docs/CALIBRATION.md](docs/CALIBRATION.md).
    - **Style pass** — rephrases the surviving issues in the reviewer's real
      voice, grounded in retrieved examples of their actual past comments
      (few-shot), not just an abstract description.
