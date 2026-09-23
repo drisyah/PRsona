@@ -219,5 +219,21 @@ check('llm:test builds providers from the passed form values',
 const shellHandler = (mainSrc.match(/ipcMain\.handle\('shell:open'[\s\S]*?\n\}\);/) || [''])[0];
 check('shell:open refuses non-https URLs', shellHandler.includes("startsWith('https://')"));
 
+// ------------------------------------ 7. review processing animation + retry
+section('7. review screen: processing animation + retry');
+for (const id of ['reviewProgress', 'reviewSkeletons', 'reviewError', 'reviewErrorMsg', 'reviewErrorHint', 'btnRetryReview']) {
+  check(`#${id} exists in the HTML`, htmlIds.has(id));
+}
+check('progress block toggles around the review:run await',
+  rendererSrc.includes('showReviewProgress(true)') && rendererSrc.includes('showReviewProgress(false)'));
+check('retry re-invokes the exact failed review',
+  rendererSrc.includes("getElementById('btnRetryReview')") && rendererSrc.includes('runReviewFor(lastFailedReview.repo'));
+check('concurrent review runs are blocked while one is in flight',
+  rendererSrc.includes('reviewInFlight = true') && rendererSrc.includes('if (reviewInFlight) return'));
+check('transient provider failures get a retry hint',
+  rendererSrc.includes('429|503|529'));
+check('.spinner styled', cssSrc.includes('.spinner'));
+check('.review-error styled', cssSrc.includes('.review-error'));
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

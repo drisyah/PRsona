@@ -524,6 +524,71 @@ pre, code { font-family: var(--font-mono); }
 
 @keyframes shimmer { to { background-position: -200% 0; } }
 
+/* --- review: processing + retry ------------------------------------------- */
+
+.review-progress {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  background: var(--panel);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.spinner {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.12);
+  border-top-color: var(--accent);
+  border-right-color: var(--accent-2);
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.review-progress-copy strong {
+  display: block;
+  font: 500 14px/1.4 var(--font-display);
+  color: var(--text);
+}
+
+.review-progress-copy .hint { margin-top: 3px; }
+
+/* Skeleton draft cards shimmer while the pipeline runs — the same treatment
+   the PR list gets while loading. */
+.review-skeletons { display: grid; gap: 10px; margin-bottom: 16px; }
+
+.draft-skeleton { min-height: 76px; }
+
+.review-error {
+  border: 1px solid rgba(255, 107, 138, 0.4);
+  background: rgba(255, 107, 138, 0.08);
+  border-radius: var(--radius);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  animation: fade-slide 0.25s ease both;
+}
+
+.review-error p {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--danger);
+  overflow-wrap: anywhere;
+}
+
+.review-error .hint { color: var(--muted); }
+
+@keyframes fade-slide { from { opacity: 0; transform: translateY(4px); } }
+
 /* --- hero + system status strip ------------------------------------------- */
 
 .hero { margin-bottom: 24px; }

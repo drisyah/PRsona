@@ -58,6 +58,24 @@
 
         <div id="reviewWarning" class="warning" style="display:none"></div>
 
+        <div id="reviewProgress" class="review-progress" style="display:none" role="status" aria-live="polite">
+          <span class="spinner" aria-hidden="true"></span>
+          <div class="review-progress-copy">
+            <strong>Reviewing…</strong>
+            <span class="hint">Analysis pass → calibration → style pass — two LLM calls, usually 5–20s.</span>
+          </div>
+        </div>
+        <div id="reviewSkeletons" class="review-skeletons" style="display:none" aria-hidden="true">
+          <div class="skeleton draft-skeleton"></div>
+          <div class="skeleton draft-skeleton"></div>
+        </div>
+
+        <div id="reviewError" class="review-error" style="display:none">
+          <p id="reviewErrorMsg"></p>
+          <p id="reviewErrorHint" class="hint" style="display:none"></p>
+          <button id="btnRetryReview">Retry review</button>
+        </div>
+
         <fieldset>
           <legend>Past reviews</legend>
           <select id="sessionSelect"></select>

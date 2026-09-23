@@ -406,26 +406,64 @@ function showEmptyState(title, body) {
   el.style.display = 'block';
 }
 
+let reviewInFlight = false;
+let lastFailedReview = null;
+
 async function runReviewFor(repo, prNumber) {
   if (!currentReviewerId) { alert('Save a reviewer in Setup first.'); return; }
+  if (reviewInFlight) return;
+  reviewInFlight = true;
   document.querySelector('[data-tab="review"]').click();
-  const container = document.getElementById('draftList');
-  container.innerHTML = '<p>Running analysis + style pipeline...</p>';
+  document.getElementById('draftList').innerHTML = '';
   showWarning(null);
+  showReviewError(null);
+  showReviewProgress(true);
   currentRepo = repo;
   currentPrNumber = prNumber;
 
   try {
     const { sessionId, drafts, warning } = await window.api.review.run(currentReviewerId, repo, prNumber);
     currentSessionId = sessionId;
+    lastFailedReview = null;
     showWarning(warning);
     renderDrafts(drafts);
     refreshSessions();
     loadStats(); // a new session exists now — refresh the dashboard strip
   } catch (e) {
-    container.innerHTML = `<p style="color:var(--danger)">${escapeHtml(e.message)}</p>`;
+    lastFailedReview = { repo, prNumber };
+    showReviewError(e);
+  } finally {
+    showReviewProgress(false);
+    reviewInFlight = false;
   }
 }
+
+function showReviewProgress(show) {
+  document.getElementById('reviewProgress').style.display = show ? 'flex' : 'none';
+  document.getElementById('reviewSkeletons').style.display = show ? 'grid' : 'none';
+}
+
+/** Fatal pipeline failure (LLM 503/429 load spikes, GitHub auth, bad diff...):
+ *  show the real error minus Electron's IPC prefix, flag the transient
+ *  provider case, and offer a retry of the exact review that failed. */
+function showReviewError(e) {
+  const box = document.getElementById('reviewError');
+  if (!e) { box.style.display = 'none'; return; }
+  const clean = (e.message || String(e))
+    .replace(/^Error invoking remote method 'review:run':\s*/, '');
+  document.getElementById('reviewErrorMsg').textContent = clean;
+  const hint = document.getElementById('reviewErrorHint');
+  const transient = /\b(429|503|529)\b|high demand|overloaded|temporar|try again later|rate.?limit/i.test(clean);
+  hint.textContent = transient
+    ? 'The model provider looks briefly overloaded — wait a few seconds, then retry.'
+    : '';
+  hint.style.display = transient ? 'block' : 'none';
+  box.style.display = 'block';
+}
+
+document.getElementById('btnRetryReview').addEventListener('click', () => {
+  if (lastFailedReview) runReviewFor(lastFailedReview.repo, lastFailedReview.prNumber);
+});
 
 /** Non-fatal pipeline problem (e.g. no embeddings provider configured). */
 function showWarning(msg) {
