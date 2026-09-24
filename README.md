@@ -19,6 +19,8 @@ with your own API keys, posting nothing you haven't approved.
 
 ![PRsona dashboard](docs/screenshot-dashboard.png)
 
+<img src="docs/prsona-demo.gif" alt="PRsona reviewing PR #1: load PRs, run the agent, triage findings, post a pending review to GitHub" width="1000">
+
 </div>
 
 ---
