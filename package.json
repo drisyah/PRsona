@@ -1,6 +1,6 @@
 {
   "name": "pr-review-agent",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "A local, provider-agnostic AI agent that learns a specific reviewer's code-review style and drafts PR reviews in that style.",
   "main": "electron/main.js",
   "author": "saril",
